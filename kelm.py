@@ -26,9 +26,13 @@ def load_config(path):
     return cfg
 
 def checkout_and_print_version(cfg, root_folder):
-    git_section = cfg.get("git", {})
+    if not cfg.has_section("git"):
+        return
+
+    git_section = cfg["git"]
     hash_sum = git_section.get("hash_sum", "").strip().strip('"').strip("'")
-    version = git_section.get("version", "").strip().strip('"').strip("'")
+    version  = git_section.get("version",  "").strip().strip('"').strip("'")
+
     if hash_sum:
         result = subprocess.run(
             ["git", "checkout", hash_sum],
@@ -40,8 +44,10 @@ def checkout_and_print_version(cfg, root_folder):
         if result.returncode != 0:
             print(f"Error: git checkout failed: {result.stderr.strip()}", file=sys.stderr)
             sys.exit(1)
+
     if version:
         print(version)
+
 
 def replace_images(root_folder, images_map):
     summary = []
@@ -86,7 +92,7 @@ def main():
     args = parse_args()
     cfg = load_config(args.config)
     if args.palletes_version:
-        if "git" in cfg and "version" in cfg["git"]:
+        if cfg.has_section("git") and "version" in cfg["git"]:
             version = cfg["git"]["version"].strip().strip('"').strip("'")
             print(version)
             sys.exit(0)
