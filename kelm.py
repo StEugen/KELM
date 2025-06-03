@@ -51,18 +51,30 @@ def replace_images(root_folder, images_map):
         if not os.path.isfile(manifest_path):
             summary.append(f"[WARN] File not found: {manifest_path}")
             continue
+
         try:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 content = f.read()
         except IOError as e:
             summary.append(f"[ERROR] Cannot read '{manifest_path}': {e}")
             continue
-        pattern = re.compile(r'^(\s*image:\s*)(["\']?)[^"\']+(["\']?)', flags=re.MULTILINE)
+
+        # Regex breakdown:
+        #   ^(\s*image:\s*)        →  group 1 = leading whitespace + "image:" + spaces
+        #   (["']?)                →  group 2 = optional opening quote
+        #   ([^\s"']+)             →  group 3 = the old‐image‐value (no spaces or quotes)
+        #   (["']?)                →  group 4 = optional closing quote
+        #   (.*)$                  →  group 5 = “the rest of line” (comments, extra fields, etc.)
+        pattern = re.compile(r'^(\s*image:\s*)(["\']?)([^\s"\']+)(["\']?)(.*)$', flags=re.MULTILINE)
+
         def _repl(match):
-            prefix = match.group(1)
-            open_q = match.group(2) or ""
-            close_q = match.group(3) or ""
-            return f"{prefix}{open_q}{new_image}{close_q}"
+            prefix   = match.group(1)   # indentation + "image:"
+            open_q   = match.group(2)   # maybe ' or "
+            # group 3 is the old value; we ignore it
+            close_q  = match.group(4)   # maybe ' or "
+            suffix   = match.group(5)   # “rest of line” (comments, etc.)
+            return f"{prefix}{open_q}{new_image}{close_q}{suffix}"
+
         new_content, count = pattern.subn(_repl, content)
         if count == 0:
             summary.append(f"[INFO] No 'image:' lines replaced in {manifest_path}")
@@ -73,7 +85,9 @@ def replace_images(root_folder, images_map):
                 summary.append(f"[OK] Replaced {count} occurrence(s) in {manifest_path}")
             except IOError as e:
                 summary.append(f"[ERROR] Cannot write '{manifest_path}': {e}")
+
     return summary
+
 
 def main():
     args = parse_args()
